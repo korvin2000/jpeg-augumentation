@@ -25,6 +25,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from ..config import ANNEX_K_CHROMA_TABLE, ANNEX_K_LUMA_TABLE
 from ..utils.image import png_to_ppm_file
 from ..utils.quant_tables import perturb_table, write_qtables_file
 from ..utils.sampling import bernoulli, triangular_int, weighted_choice
@@ -33,30 +34,6 @@ from . import register_encoder
 from .base import EncodeContext, EncoderOptions, JPEGEncoder
 
 log = logging.getLogger(__name__)
-
-# Classic JPEG Annex K example quantization tables (8x8, natural order).
-# These are used only as a *seed* for rare custom-table generation.
-ANNEXK_LUMA = [
-    [16, 11, 10, 16, 24, 40, 51, 61],
-    [12, 12, 14, 19, 26, 58, 60, 55],
-    [14, 13, 16, 24, 40, 57, 69, 56],
-    [14, 17, 22, 29, 51, 87, 80, 62],
-    [18, 22, 37, 56, 68, 109, 103, 77],
-    [24, 35, 55, 64, 81, 104, 113, 92],
-    [49, 64, 78, 87, 103, 121, 120, 101],
-    [72, 92, 95, 98, 112, 100, 103, 99],
-]
-
-ANNEXK_CHROMA = [
-    [17, 18, 24, 47, 99, 99, 99, 99],
-    [18, 21, 26, 66, 99, 99, 99, 99],
-    [24, 26, 56, 99, 99, 99, 99, 99],
-    [47, 66, 99, 99, 99, 99, 99, 99],
-    [99, 99, 99, 99, 99, 99, 99, 99],
-    [99, 99, 99, 99, 99, 99, 99, 99],
-    [99, 99, 99, 99, 99, 99, 99, 99],
-    [99, 99, 99, 99, 99, 99, 99, 99],
-]
 
 
 @register_encoder
@@ -93,7 +70,7 @@ class CjpegEncoder(JPEGEncoder):
         elif quant_kind == "imagemagick":
             quant = {"kind": "predefined", "id": 3}
         elif quant_kind == "perceptual":
-            qid = weighted_choice(rng, {2: 0.35, 4: 0.35, 5: 0.10, 6: 0.08, 7: 0.07, 8: 0.05})
+            qid = weighted_choice(rng, sampling.perceptual_table_weights)
             quant = {"kind": "predefined", "id": int(qid)}
         else:
             strength = cfg.custom_quant_strength_by_bucket.for_bucket(bucket)
@@ -175,8 +152,8 @@ class CjpegEncoder(JPEGEncoder):
         if quant.get("kind") == "custom":
             strength = float(quant.get("strength", 0.12))
             internal["custom_tables"] = {
-                "luma": perturb_table(rng, ANNEXK_LUMA, strength),
-                "chroma": perturb_table(rng, ANNEXK_CHROMA, strength),
+                "luma": perturb_table(rng, [list(row) for row in ANNEX_K_LUMA_TABLE], strength),
+                "chroma": perturb_table(rng, [list(row) for row in ANNEX_K_CHROMA_TABLE], strength),
             }
 
         return EncoderOptions(normalized=normalized, internal=internal)

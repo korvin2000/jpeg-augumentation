@@ -86,6 +86,8 @@ class TriangularRange:
 
 @dataclass(frozen=True)
 class CjpegSamplingConfig:
+    # Bias progressive by quality bucket: low-quality images trend toward baseline,
+    # while high-quality images more often use progressive scans.
     progressive_adjustments: ProgressiveProbAdjustments = field(default_factory=ProgressiveProbAdjustments)
     subsampling_overrides: BucketedWeightsOverrides = field(
         default_factory=lambda: BucketedWeightsOverrides(
@@ -106,6 +108,7 @@ class CjpegSamplingConfig:
     custom_quant_strength_by_bucket: BucketedValues = field(
         default_factory=lambda: BucketedValues(low=0.10, mid=0.12, high=0.20)
     )
+    # DC scan optimization: keep default (1) most often, let others be rare.
     dc_scan_opt_weights_mid: dict[int, float] = field(default_factory=lambda: {1: 0.80, 2: 0.12, 0: 0.08})
     dc_scan_opt_weights_high: dict[int, float] = field(default_factory=lambda: {1: 0.68, 2: 0.20, 0: 0.12})
     fastcrush_prob_by_bucket: BucketedValues = field(default_factory=lambda: BucketedValues(0.08, 0.12, 0.18))
@@ -129,6 +132,7 @@ class CjpegSamplingConfig:
 
 @dataclass(frozen=True)
 class FraunhoferSamplingConfig:
+    # Progressive bias by quality bucket.
     progressive_adjustments: ProgressiveProbAdjustments = field(default_factory=ProgressiveProbAdjustments)
     subsampling_overrides: BucketedWeightsOverrides = field(
         default_factory=lambda: BucketedWeightsOverrides(
@@ -144,6 +148,8 @@ class FraunhoferSamplingConfig:
     )
     restart_adjustments: RestartProbAdjustments = field(default_factory=RestartProbAdjustments)
     restart_mcus_range: TriangularRange = TriangularRange(4, 64, 12)
+    # When artifact knobs are enabled, dz is most common, oz mid, dr rare.
+    artifact_knob_probs: dict[str, float] = field(default_factory=lambda: {"dz": 0.45, "oz": 0.35, "dr": 0.25})
 
 
 @dataclass(frozen=True)

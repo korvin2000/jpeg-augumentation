@@ -25,6 +25,35 @@ from typing import Any
 from .encoder_sampling import EncoderSamplingConfig, apply_overrides
 from .utils.sampling import clamp
 
+ANNEX_K_LUMA_TABLE: tuple[tuple[int, ...], ...] = (
+    # ITU-T Annex K luma quantization table in natural order.
+    # Used as a realistic seed for rare custom-table perturbations.
+    (16, 11, 10, 16, 24, 40, 51, 61),
+    (12, 12, 14, 19, 26, 58, 60, 55),
+    (14, 13, 16, 24, 40, 57, 69, 56),
+    (14, 17, 22, 29, 51, 87, 80, 62),
+    (18, 22, 37, 56, 68, 109, 103, 77),
+    (24, 35, 55, 64, 81, 104, 113, 92),
+    (49, 64, 78, 87, 103, 121, 120, 101),
+    (72, 92, 95, 98, 112, 100, 103, 99),
+)
+
+ANNEX_K_CHROMA_TABLE: tuple[tuple[int, ...], ...] = (
+    # ITU-T Annex K chroma quantization table in natural order.
+    # This is the standard baseline-compatible chroma seed.
+    (17, 18, 24, 47, 99, 99, 99, 99),
+    (18, 21, 26, 66, 99, 99, 99, 99),
+    (24, 26, 56, 99, 99, 99, 99, 99),
+    (47, 66, 99, 99, 99, 99, 99, 99),
+    (99, 99, 99, 99, 99, 99, 99, 99),
+    (99, 99, 99, 99, 99, 99, 99, 99),
+    (99, 99, 99, 99, 99, 99, 99, 99),
+    (99, 99, 99, 99, 99, 99, 99, 99),
+)
+
+ANNEX_K_LUMA_FLAT: tuple[int, ...] = tuple(v for row in ANNEX_K_LUMA_TABLE for v in row)
+ANNEX_K_CHROMA_FLAT: tuple[int, ...] = tuple(v for row in ANNEX_K_CHROMA_TABLE for v in row)
+
 
 @dataclass(frozen=True)
 class EncoderWeights:
@@ -64,6 +93,12 @@ class GlobalSampling:
         }
     )
 
+    # When "perceptual" is chosen, pick among known tuned table IDs.
+    # We favor common mid-frequency tables (2 and 4) and keep the rest as a long tail.
+    perceptual_table_weights: dict[int, float] = field(
+        default_factory=lambda: {2: 0.35, 4: 0.35, 5: 0.10, 6: 0.08, 7: 0.07, 8: 0.05}
+    )
+
     # Very rare: arithmetic coding (only on encoders that support it)
     arithmetic_prob: float = 0.003  # 0.3%
 
@@ -94,6 +129,7 @@ def load_config(path: Path | None) -> AppConfig:
         "progressive_prob": 0.30,
         "subsampling_weights": {"420": 0.80, "444": 0.15, "422": 0.05},
         "quant_kind_weights": {"annex_k": 0.50, ...},
+        "perceptual_table_weights": {"2": 0.35, "4": 0.35, "5": 0.10, "6": 0.08, "7": 0.07, "8": 0.05},
         "arithmetic_prob": 0.003,
         "restart_prob": 0.04,
         "artifact_knobs_prob": 0.08
@@ -166,10 +202,19 @@ def load_config(path: Path | None) -> AppConfig:
             except Exception:
                 continue
 
+    perceptual_table_weights = dict(s.perceptual_table_weights)
+    if isinstance(s_raw.get("perceptual_table_weights"), dict):
+        for k, v in s_raw["perceptual_table_weights"].items():
+            try:
+                perceptual_table_weights[int(k)] = float(v)
+            except Exception:
+                continue
+
     sampling = GlobalSampling(
         progressive_prob=clamp(progressive_prob, 0.0, 1.0),
         subsampling_weights=subsampling_weights,
         quant_kind_weights=quant_kind_weights,
+        perceptual_table_weights=perceptual_table_weights,
         arithmetic_prob=clamp(arithmetic_prob, 0.0, 0.05),
         restart_prob=clamp(restart_prob, 0.0, 0.50),
         artifact_knobs_prob=clamp(artifact_knobs_prob, 0.0, 1.0),
