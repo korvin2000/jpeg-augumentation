@@ -1,0 +1,56 @@
+usage: cjpeg.exe [switches] [inputfile]
+Switches (names may be abbreviated):
+  -quality N[,...]   Compression quality (0..100; 5-95 is most useful range,
+                     default is 75)
+  -grayscale     Create monochrome JPEG file
+  -rgb           Create RGB JPEG file
+  -optimize      Optimize Huffman table (smaller file, but slow compression, enabled by default)
+  -progressive   Create progressive JPEG file (enabled by default)
+  -baseline      Create baseline JPEG file (disable progressive coding)
+  -targa         Input file is Targa format (usually not needed)
+  -revert        Revert to standard defaults (instead of mozjpeg defaults)
+  -fastcrush     Disable progressive scan optimization
+  -dc-scan-opt   DC scan optimization mode
+                 - 0 One scan for all components
+                 - 1 One scan per component (default)
+                 - 2 Optimize between one scan for all components and one scan for 1st component
+                     plus one scan for remaining components
+  -notrellis     Disable trellis optimization
+  -trellis-dc    Enable trellis optimization of DC coefficients (default)
+  -notrellis-dc  Disable trellis optimization of DC coefficients
+  -tune-psnr     Tune trellis optimization for PSNR
+  -tune-hvs-psnr Tune trellis optimization for PSNR-HVS (default)
+  -tune-ssim     Tune trellis optimization for SSIM
+  -tune-ms-ssim  Tune trellis optimization for MS-SSIM
+Switches for advanced users:
+  -noovershoot   Disable black-on-white deringing via overshoot
+  -nojfif        Do not write JFIF (reduces size by 18 bytes but breaks standards; no known problems in Web browsers)
+  -dct int       Use accurate integer DCT method (default)
+  -dct fast      Use less accurate integer DCT method [legacy feature]
+  -dct float     Use floating-point DCT method [legacy feature]
+  -quant-baseline Use 8-bit quantization table entries for baseline JPEG compatibility
+  -quant-table N Use predefined quantization table N:
+                 - 0 JPEG Annex K
+                 - 1 Flat
+                 - 2 Tuned for MS-SSIM on Kodak image set
+                 - 3 ImageMagick table by N. Robidoux (default)
+                 - 4 Tuned for PSNR-HVS on Kodak image set
+                 - 5 Table from paper by Klein, Silverstein and Carney
+                 - 6 Table from paper by Watson, Taylor and Borthwick
+                 - 7 Table from paper by Ahumada, Watson, Peterson
+                 - 8 Table from paper by Peterson, Ahumada and Watson
+  -icc FILE      Embed ICC profile contained in FILE
+  -restart N     Set restart interval in rows, or in blocks with B
+  -smooth N      Smooth dithered input (N=1..100 is strength)
+  -maxmemory N   Maximum memory to use (in kbytes)
+  -outfile name  Specify name for output file
+  -memdst        Compress to memory instead of file (useful for benchmarking)
+  -report        Report compression progress
+  -strict        Treat all warnings as fatal
+  -verbose  or  -debug   Emit debug output
+  -version       Print version information and exit
+Switches for wizards:
+  -qtables FILE  Use quantization tables given in FILE
+  -qslots N[,...]    Set component quantization tables
+  -sample HxV[,...]  Set component sampling factors
+  -scans FILE    Create multi-scan JPEG per script FILE

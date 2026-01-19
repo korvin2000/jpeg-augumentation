@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jpeg-variety"
+version = "0.1.0"
+description = "Batch-encode PNG into JPEG with realistic encoder parameter variability"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{name = "OpenAI Codex", email = "noreply@example.com"}]
+license = {text = "MIT"}
+dependencies = [
+  "Pillow>=10.0.0",
+]
+
+[project.optional-dependencies]
+yaml = ["PyYAML>=6.0"]
+
+[project.scripts]
+jpeg-variety = "jpeg_variety.cli:main"
+
+[tool.setuptools]
+packages = ["jpeg_variety", "jpeg_variety.utils", "jpeg_variety.encoders"]

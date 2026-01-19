@@ -1,0 +1,148 @@
+jpeg Copyright (C) 2012-2018 Thomas Richter, University of Stuttgart
+and Accusoft
+
+For license conditions, see README.license for details.
+
+Usage: jpeg.exe [options] source target
+default is to decode the jpeg input and write a ppm output
+use -q [1..100] or -p to enforce encoding
+
+-q quality : selects the encoding mode and defines the quality of the base image
+-Q quality : defines the quality for the extension layer
+-quality q : use a profile and part specific weighting between base and extension
+             layer quality
+-r         : enable the residual codestream for HDR and lossless
+             coding, requires -q and -Q to define base and
+             enhancement layer quality.
+-r12       : use a 12 bit residual image instead of an 8 bit residual
+             image.
+-rl        : enforce a int-to-int lossless DCT in the residual domain
+             for lossless coding enabled by -Q 100
+-ro        : disable the DCT in the residual domain, quantize spatially for
+             near-lossless coding
+-ldr file  : specifies a separate file containing the base layer
+             for encoding.
+-R bits    : specify refinement bits for the base images.
+             This works like -r but in the DCT domain.
+-rR bits   : specify refinement bits for the residual image.
+-N         : enable noise shaping of the prediction residual
+-U         : disable automatic upsampling
+-l         : enable lossless coding without a residual image by an
+             int-to-int DCT, also requires -c and -q 100 for true lossless
+-p         : JPEG lossless (predictive) mode
+             also requires -c for true lossless
+-c         : disable the RGB to YCbCr decorrelation transformation
+-xyz       : indicates that the HDR image is in the XYZ colorspace
+             note that the image is not *converted* to this space, but
+             is assumed to be encoded in this space.
+-cxyz      : similar to the above, but uses the dedicated C transformation
+             to implement a XYZ colorspace conversion.
+-sp        : use separate LUTs for each component.
+-md        : use the median instead of the center of mass
+             for constructing the inverse TMO of ISO/IEC 18477-7 profile C.
+-ct        : use the center of mass instead of the median
+             for constructing the inverse TMO of ISO/IEC 18477-7 profile C.
+-sm iter   : use <iter> iterations to smooth out the histogram for
+             inverse-TMO based algorithms. Default is not to smooth
+             the histogram.
+-ncl       : disable clamping of out-of-gamut colors.
+             this is automatically enabled for lossless.
+-m maxerr  : defines a maximum pixel error for JPEG LS coding
+-h         : optimize the Huffman tables
+-a         : use arithmetic coding instead of Huffman coding
+             available for all coding schemes (-p,-v,-l and default)
+-bl        : force encoding in the baseline process, default is extended sequential
+-v         : use progressive instead of sequential encoding
+             available for all coding schemes (-r,-a,-l and default)
+-qv        : use a simplified scan pattern for progressive that only
+             separates AC from DC bands and may improve the performance
+-d         : encode the DC band only (requires -p)
+-y levels  : hierarchical JPEG coding with the given number of decomposition
+             levels. If levels is zero, then a lossless coding mode for
+             hierarchical is used in which the second lossless scan encodes
+             the DCT residuals of the first scan. For that, -c is suggested
+             for true lossless. If levels is one, then the lossy initial scan
+             is downscaled by a power of two.
+-g gamma   : define the exponent for the gamma for the LDR domain, or rather, for
+             mapping HDR to LDR. A suggested value is 2.4 for mapping scRGB to sRBG.
+             This option controls the base-nonlinearity that generates the
+             HDR pre-cursor image from the LDR image. It is also used in the
+             absence of -ldr (i.e. no LDR image) to tonemap the HDR input image.
+             Use -g 0 to use an approximate inverse TMO as base-nonlinearity, and
+             for tonemapping with the Reinhard operator if the LDR image is missing.
+-gf file   : define the inverse one-point L-nonlinearity on decoding from a file
+             this file contains one (ASCII encoded) digit per line, 256*2^h lines
+             in total, where h is the number of refinement bits. Each line contains
+             an (integer) output value the corresponding input is mapped to.
+-z mcus    : define the restart interval size, zero disables it
+-n         : indicate the image height by a DNL marker
+-s WxH,... : define subsampling factors for all components
+             note that these are NOT MCU sizes
+             Default is 1x1,1x1,1x1 (444 subsampling)
+             1x1,2x2,2x2 is the 420 subsampling often used
+-sr WxH,...: define subsampling in the residual domain
+-rs        : encode the residual image in sequential (rather than the modified residual)
+             coding mode
+-rv        : encode the residual image in progressive coding mode
+-ol        : open loop encoding, residuals are based on original, not reconstructed
+-dz        : improved deadzone quantizer, may help to improve the R/D performance
+-oz        : optimize quantizer, may help to improve the R/D performance
+-dr        : include the optional de-ringing (Gibbs Phenomenon) filter on encoding
+-qt n      : define the quantization table. The following tables are currently defined:
+             n = 0 the example tables from Rec. ITU-T T.81 | ISO/IEC 10918-1 (default)
+             n = 1 a completely flat table that should be PSNR-optimal
+             n = 2 a MS-SSIM optimized table
+             n = 3 the table suggested by ImageMagick
+             n = 4 a HSV-PSNR optimized table
+             n = 5 the table from Klein, Silverstein and Carney:
+                   Relevance of human vision to JPEG-DCT compression (1992)
+             n = 6 the table from Watson, Taylor, Borthwick:
+                   DCTune perceptual optimization of compressed dental X-Rays (1997)
+             n = 7 the table from Ahumada, Watson, Peterson:
+                   A visual detection model for DCT coefficient quantization (1993)
+             n = 8 the table from Peterson, Ahumada and Watson:
+                   An improved detection model for DCT coefficient quantization (1993)
+-qtf file  : read the quantization steps from a file, 64*2 integers (luma & chroma)
+-rqt n     : defines the quantization table for the residual stream in the same way
+-rqtf file : read the residual quantization steps from a file
+-al file   : specifies a one-component pgm/pfm file that contains an alpha component
+             or the code will write the alpha component to.
+             This demo code DOES NOT implement compositing of alpha and background
+-am mode   : specifes the mode of the alpha: 1 (regular) 2 (premultiplied) 3 (matte-removal)
+-ab r,g,b  : specifies the matte (background) color for mode 3 as RGB triple
+-ar        : enable residual coding for the alpha channel, required if the
+             alpha channel is larger than 8bpp
+-ar12      : use a 12 bit residual for the alpha channel
+-aR bits   : set refinement bits in the alpha base codestream
+-arR bits  : set refinement bits in the residual alpha codestream
+-aol       : enable open loop coding for the alpha channel
+-adz       : enable the deadzone quantizer for the alpha channel
+-aoz       : enable the quantization optimization for the alpha channel
+-adr       : include the de-ringing filter for the alpha channel
+-all       : enable lossless DCT for alpha coding
+-alo       : disable the DCT in the residual alpha channel, quantize spatially.
+-aq qu     : specify a quality for the alpha base channel (usually the only one)
+-aQ qu     : specify a quality for the alpha extension layer
+-aqt n     : specify the quantization table for the alpha channel
+-aqtf file : read the alpha quantization tables from a file
+-arqt n    : specify the quantization table for residual alpha
+-arqtf file: read the residual alpha quantization tables from a file
+-aquality q: specify a combined quality for both
+-ra        : enable arithmetic coding for residual image (*NOT SPECIFIED*)
+-ls mode   : encode in JPEG LS mode, where 0 is scan-interleaved,
+             1 is line interleaved and 2 is sample interleaved.
+             NOTE THAT THIS IS NOT CONFORMING TO REC. ITU-T T.81 | ISO/IEC 10918 BUT
+             COMPLIANT TO REC. ITU-T T.87 | ISO/IEC 14495-1 (JPEG-LS) WHICH IS A
+             DIFFERENT STANDARD.
+             Use -c to bypass the YCbCr color transformation for true lossless,
+             also use -c for decoding images encoded by the UBC reference software
+             as it does not write an indicator marker to disable the
+             transformation itself.
+             Note that the UBC implementation will not able to decode streams created by
+             this software due to a limitation of the UBC code - the streams are
+             nevertheless fully conforming.
+-cls       : Use a JPEG LS part-2 conforming pseudo-RCT color transformation.
+             Note that this transformation is only CONFORMING TO
+             REC. ITU-T T.870 | ISO/IEC 14495-2 AND NOT CONFORMING TO
+             REC. ITU-T T.81 | ISO/IEC 10918-1. Works for near-lossless JPEG LS
+             DO NOT USE FOR LOSSY JPEG, it will also create artifacts.
