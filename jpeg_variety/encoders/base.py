@@ -59,6 +59,14 @@ class JPEGEncoder(abc.ABC):
     def encode(self, input_png: Path, output_jpg: Path, options: EncoderOptions) -> RunResult:
         """Perform encoding."""
 
+    def preview_cmd(self, input_png: Path, output_jpg: Path, options: EncoderOptions) -> list[str]:
+        """Return a representative CLI command for logging/dry-run."""
+
+        cmd = options.internal.get("cmd_template")
+        if isinstance(cmd, list):
+            return cmd
+        return ["<dry-run>"]
+
     def cleanup(self, options: EncoderOptions) -> None:
         """Remove any temp files."""
 

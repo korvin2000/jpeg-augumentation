@@ -134,18 +134,23 @@ class FraunhoferJPEGEncoder(JPEGEncoder):
 
         return EncoderOptions(normalized=normalized, internal=internal)
 
-    def encode(self, input_png: Path, output_jpg: Path, options: EncoderOptions) -> RunResult:
-        if self._exe is None:
-            raise RuntimeError("jpeg executable not found on PATH")
+    def preview_cmd(self, input_png: Path, output_jpg: Path, options: EncoderOptions) -> list[str]:
+        ppm_path = Path("./input.ppm")
+        output_path = Path("./output.jpg")
+        return self._build_cmd(ppm_path, output_path, options, qtf_path=Path("./custom.qtf"))
 
+    def _build_cmd(
+        self,
+        ppm_path: Path,
+        output_jpg: Path,
+        options: EncoderOptions,
+        *,
+        qtf_path: Path | None = None,
+    ) -> list[str]:
+        exe = self._exe or "jpeg"
         base_quality = int(options.normalized.get("quality", 75))
 
-        with tempfile.NamedTemporaryFile(suffix=".ppm", delete=False) as f:
-            ppm_path = Path(f.name)
-        options.temp_paths.append(ppm_path)
-        png_to_ppm_file(input_png, ppm_path)
-
-        cmd: list[str] = [self._exe, "-q", str(base_quality)]
+        cmd: list[str] = [exe, "-q", str(base_quality)]
 
         # Process selection
         if bool(options.internal.get("progressive", False)):
@@ -178,13 +183,8 @@ class FraunhoferJPEGEncoder(JPEGEncoder):
         if isinstance(quant, dict) and quant.get("kind") == "predefined":
             cmd.extend(["-qt", str(int(quant.get("id", 0)))])
         elif isinstance(quant, dict) and quant.get("kind") == "custom":
-            steps = options.internal.get("custom_steps")
-            if not isinstance(steps, dict) or "luma" not in steps or "chroma" not in steps:
-                raise RuntimeError("custom quant selected but custom_steps missing")
-            with tempfile.NamedTemporaryFile("w", suffix=".qtf", delete=False, encoding="utf-8") as f:
-                qtf_path = Path(f.name)
-            options.temp_paths.append(qtf_path)
-            write_qtf_file(qtf_path, steps["luma"], steps["chroma"])
+            if qtf_path is None:
+                qtf_path = Path("./custom.qtf")
             cmd.extend(["-qtf", str(qtf_path)])
 
         # Restart markers
@@ -201,5 +201,29 @@ class FraunhoferJPEGEncoder(JPEGEncoder):
             cmd.append("-dr")
 
         cmd.extend([str(ppm_path), str(output_jpg)])
+
+        return cmd
+
+    def encode(self, input_png: Path, output_jpg: Path, options: EncoderOptions) -> RunResult:
+        if self._exe is None:
+            raise RuntimeError("jpeg executable not found on PATH")
+
+        with tempfile.NamedTemporaryFile(suffix=".ppm", delete=False) as f:
+            ppm_path = Path(f.name)
+        options.temp_paths.append(ppm_path)
+        png_to_ppm_file(input_png, ppm_path)
+
+        qtf_path: Path | None = None
+        quant = options.internal.get("quant", {})
+        if isinstance(quant, dict) and quant.get("kind") == "custom":
+            steps = options.internal.get("custom_steps")
+            if not isinstance(steps, dict) or "luma" not in steps or "chroma" not in steps:
+                raise RuntimeError("custom quant selected but custom_steps missing")
+            with tempfile.NamedTemporaryFile("w", suffix=".qtf", delete=False, encoding="utf-8") as f:
+                qtf_path = Path(f.name)
+            options.temp_paths.append(qtf_path)
+            write_qtf_file(qtf_path, steps["luma"], steps["chroma"])
+
+        cmd = self._build_cmd(ppm_path, output_jpg, options, qtf_path=qtf_path)
 
         return run(cmd)

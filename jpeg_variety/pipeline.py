@@ -154,11 +154,7 @@ def run_pipeline(args: PipelineArgs, config: AppConfig) -> Path:
         elif args.dry_run:
             ok = True
             options.normalized["dry_run"] = True
-            # Some encoders may not be able to fully resolve cmd without IO;
-            # they set an approximate cmd template in options.internal.
-            cmd = options.internal.get("cmd_template")
-            if not isinstance(cmd, list):
-                cmd = ["<dry-run>"]
+            cmd = encoder.preview_cmd(item.input_path, out_path, options)
         else:
             try:
                 res = encoder.encode(item.input_path, out_path, options)
@@ -198,7 +194,7 @@ def run_pipeline(args: PipelineArgs, config: AppConfig) -> Path:
             encoder_name,
             cmd,
             options.normalized,
-            include_normalized=args.dry_run,
+            include_normalized=False,
         )
         return EncodeResult(manifest=manifest, ok=ok, log_line=log_line)
 

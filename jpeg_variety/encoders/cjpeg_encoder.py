@@ -158,19 +158,23 @@ class CjpegEncoder(JPEGEncoder):
 
         return EncoderOptions(normalized=normalized, internal=internal)
 
-    def encode(self, input_png: Path, output_jpg: Path, options: EncoderOptions) -> RunResult:
-        if self._exe is None:
-            raise RuntimeError("cjpeg executable not found on PATH")
+    def preview_cmd(self, input_png: Path, output_jpg: Path, options: EncoderOptions) -> list[str]:
+        ppm_path = Path("./input.ppm")
+        output_path = Path("./output.jpg")
+        return self._build_cmd(ppm_path, output_path, options, qtables_path=Path("./qtables.txt"))
 
-        
-        with tempfile.NamedTemporaryFile(suffix=".ppm", delete=False) as f:
-            ppm_path = Path(f.name)
-        options.temp_paths.append(ppm_path)
-        png_to_ppm_file(input_png, ppm_path)
-
+    def _build_cmd(
+        self,
+        ppm_path: Path,
+        output_jpg: Path,
+        options: EncoderOptions,
+        *,
+        qtables_path: Path | None = None,
+    ) -> list[str]:
+        exe = self._exe or "cjpeg"
         base_quality = int(options.normalized.get("quality", 75))
 
-        cmd: list[str] = [self._exe, "-quality", str(base_quality)]
+        cmd: list[str] = [exe, "-quality", str(base_quality)]
 
         progressive = bool(options.internal.get("progressive", False))
         if progressive:
@@ -196,14 +200,9 @@ class CjpegEncoder(JPEGEncoder):
         if isinstance(quant, dict) and quant.get("kind") == "predefined":
             cmd.extend(["-quant-table", str(int(quant.get("id", 0)))])
         elif isinstance(quant, dict) and quant.get("kind") == "custom":
-            tables = options.internal.get("custom_tables")
-            if not isinstance(tables, dict) or "luma" not in tables or "chroma" not in tables:
-                raise RuntimeError("custom quant selected but custom_tables missing")
-            with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as f:
-                qpath = Path(f.name)
-            write_qtables_file(qpath, tables["luma"], tables["chroma"])
-            options.temp_paths.append(qpath)
-            cmd.extend(["-qtables", str(qpath), "-qslots", "0,1,1"])
+            if qtables_path is None:
+                qtables_path = Path("./qtables.txt")
+            cmd.extend(["-qtables", str(qtables_path), "-qslots", "0,1,1"])
 
         if bool(options.internal.get("quant_baseline", False)):
             cmd.append("-quant-baseline")
@@ -245,5 +244,30 @@ class CjpegEncoder(JPEGEncoder):
 
         output_jpg = Path(output_jpg).expanduser().resolve()
         cmd.extend(["-outfile", os.fspath(output_jpg), str(ppm_path)])
+
+        return cmd
+
+    def encode(self, input_png: Path, output_jpg: Path, options: EncoderOptions) -> RunResult:
+        if self._exe is None:
+            raise RuntimeError("cjpeg executable not found on PATH")
+
+        
+        with tempfile.NamedTemporaryFile(suffix=".ppm", delete=False) as f:
+            ppm_path = Path(f.name)
+        options.temp_paths.append(ppm_path)
+        png_to_ppm_file(input_png, ppm_path)
+
+        qtables_path: Path | None = None
+        quant = options.internal.get("quant", {})
+        if isinstance(quant, dict) and quant.get("kind") == "custom":
+            tables = options.internal.get("custom_tables")
+            if not isinstance(tables, dict) or "luma" not in tables or "chroma" not in tables:
+                raise RuntimeError("custom quant selected but custom_tables missing")
+            with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as f:
+                qtables_path = Path(f.name)
+            write_qtables_file(qtables_path, tables["luma"], tables["chroma"])
+            options.temp_paths.append(qtables_path)
+
+        cmd = self._build_cmd(ppm_path, output_jpg, options, qtables_path=qtables_path)
 
         return run(cmd)
