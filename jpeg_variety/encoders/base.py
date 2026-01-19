@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from ..config import GlobalSampling
+from ..encoder_sampling import EncoderSamplingConfig
 from ..utils.subprocess import RunResult
 
 
@@ -24,6 +25,7 @@ class EncodeContext:
     quality_bucket: str  # "low"|"mid"|"high"
     per_file_seed: int
     sampling: GlobalSampling
+    encoder_sampling: EncoderSamplingConfig
 
 
 @dataclass

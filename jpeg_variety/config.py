@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .encoder_sampling import EncoderSamplingConfig, apply_overrides
 from .utils.sampling import clamp
 
 
@@ -77,6 +78,7 @@ class GlobalSampling:
 class AppConfig:
     encoder_weights: EncoderWeights = field(default_factory=EncoderWeights)
     sampling: GlobalSampling = field(default_factory=GlobalSampling)
+    encoder_sampling: EncoderSamplingConfig = field(default_factory=EncoderSamplingConfig)
 
 
 def load_config(path: Path | None) -> AppConfig:
@@ -95,6 +97,14 @@ def load_config(path: Path | None) -> AppConfig:
         "arithmetic_prob": 0.003,
         "restart_prob": 0.04,
         "artifact_knobs_prob": 0.08
+      },
+      "encoder_sampling": {
+        "cjpeg": {
+          "dct_weights": {"int": 0.92, "fast": 0.05, "float": 0.03}
+        },
+        "jpeg": {
+          "baseline_process_prob": 0.75
+        }
       }
     }
     """
@@ -165,4 +175,12 @@ def load_config(path: Path | None) -> AppConfig:
         artifact_knobs_prob=clamp(artifact_knobs_prob, 0.0, 1.0),
     )
 
-    return AppConfig(encoder_weights=EncoderWeights(weights=ew), sampling=sampling)
+    encoder_sampling = base.encoder_sampling
+    if isinstance(raw.get("encoder_sampling"), dict):
+        encoder_sampling = apply_overrides(encoder_sampling, raw["encoder_sampling"])
+
+    return AppConfig(
+        encoder_weights=EncoderWeights(weights=ew),
+        sampling=sampling,
+        encoder_sampling=encoder_sampling,
+    )

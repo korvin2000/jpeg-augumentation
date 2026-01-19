@@ -94,6 +94,7 @@ def run_pipeline(args: PipelineArgs, config: AppConfig) -> Path:
             quality_bucket=bucket,
             per_file_seed=pf_seed,
             sampling=config.sampling,
+            encoder_sampling=config.encoder_sampling,
         )
 
         out_path = mirror_output_path(dst, rel, args.mirror_subdirs)
