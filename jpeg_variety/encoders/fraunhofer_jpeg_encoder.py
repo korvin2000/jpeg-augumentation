@@ -22,8 +22,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from PIL import Image
-
+from ..utils.image import png_to_ppm_file
+from ..utils.quant_tables import perturb_steps, write_qtf_file
 from ..utils.sampling import bernoulli, triangular_int, weighted_choice
 from ..utils.subprocess import RunResult, run
 from . import register_encoder
@@ -53,56 +53,6 @@ ANNEXK_CHROMA_FLAT = [
 ]
 
 
-def _png_to_ppm_file(png_path: Path, ppm_path: Path, *, background_rgb=(255, 255, 255)) -> None:
-    with Image.open(png_path) as im:
-        im.load()
-        if im.mode in {"RGBA", "LA"} or (im.mode == "P" and "transparency" in im.info):
-            bg = Image.new("RGBA", im.size, background_rgb + (255,))
-            rgba = im.convert("RGBA")
-            comp = Image.alpha_composite(bg, rgba).convert("RGB")
-            im_rgb = comp
-        else:
-            im_rgb = im.convert("RGB")
-
-        w, h = im_rgb.size
-        header = f"P6\n{w} {h}\n255\n".encode("ascii")
-        data = im_rgb.tobytes()
-        ppm_path.write_bytes(header + data)
-
-
-def _adjusted_progressive_prob(base_p: float, bucket: str) -> float:
-    if bucket == "low":
-        return max(0.05, base_p * 0.50)
-    if bucket == "high":
-        return min(0.60, base_p * 1.33)
-    return base_p
-
-
-def _adjusted_subsampling_weights(base: dict[str, float], bucket: str) -> dict[str, float]:
-    if bucket == "low":
-        return {"420": 0.88, "444": 0.08, "422": 0.04}
-    if bucket == "high":
-        return {"420": 0.68, "444": 0.27, "422": 0.05}
-    return dict(base)
-
-
-def _perturb_steps(rng, steps: list[int], strength: float) -> list[int]:
-    out: list[int] = []
-    for i, v in enumerate(steps):
-        hf = i / 63.0
-        local = strength * (0.35 + 0.65 * hf)
-        nv = int(round(v * (1.0 + rng.uniform(-local, local))))
-        out.append(max(1, min(255, nv)))
-    return out
-
-
-def _write_qtf_file(path: Path, luma_steps: list[int], chroma_steps: list[int]) -> None:
-    # Inventory says: "64*2 integers (luma & chroma)".
-    all_steps = luma_steps + chroma_steps
-    txt = "\n".join(str(int(x)) for x in all_steps) + "\n"
-    path.write_text(txt, encoding="utf-8")
-
-
 @register_encoder
 class FraunhoferJPEGEncoder(JPEGEncoder):
     name = "jpeg"
@@ -117,19 +67,20 @@ class FraunhoferJPEGEncoder(JPEGEncoder):
     def sample_options(self, base_quality: int, rng, context: EncodeContext) -> EncoderOptions:
         bucket = context.quality_bucket
         sampling = context.sampling
+        cfg = context.encoder_sampling.jpeg
 
-        progressive = bernoulli(rng, _adjusted_progressive_prob(sampling.progressive_prob, bucket))
+        progressive = bernoulli(rng, cfg.progressive_adjustments.apply(sampling.progressive_prob, bucket))
 
         # Among non-progressive runs, bias toward baseline process (web realism).
         baseline_process = False
         if not progressive:
-            baseline_process = bernoulli(rng, 0.75)
+            baseline_process = bernoulli(rng, cfg.baseline_process_prob)
 
-        subsampling = weighted_choice(rng, _adjusted_subsampling_weights(sampling.subsampling_weights, bucket))
+        subsampling = weighted_choice(rng, cfg.subsampling_overrides.for_bucket(sampling.subsampling_weights, bucket))
 
         # Entropy coding knobs
         arithmetic = bernoulli(rng, sampling.arithmetic_prob)
-        huffman_opt = bernoulli(rng, 0.60)
+        huffman_opt = bernoulli(rng, cfg.huffman_opt_prob)
 
         # Quantization: predefined tables 0..8, or rare custom qtf file.
         quant_kind = weighted_choice(rng, sampling.quant_kind_weights)
@@ -142,21 +93,19 @@ class FraunhoferJPEGEncoder(JPEGEncoder):
             qid = weighted_choice(rng, {2: 0.35, 4: 0.35, 5: 0.10, 6: 0.08, 7: 0.07, 8: 0.05})
             quant = {"kind": "predefined", "id": int(qid)}
         else:
-            strength = 0.20 if bucket == "high" else (0.12 if bucket == "mid" else 0.10)
+            strength = cfg.custom_quant_strength_by_bucket.for_bucket(bucket)
             quant = {"kind": "custom", "generator": "perturbed_annexk", "strength": strength}
 
         # Progressive scan simplification -qv: uncommon, but exists.
-        qv = progressive and bernoulli(rng, 0.20 if bucket == "low" else (0.25 if bucket == "mid" else 0.30))
+        qv = progressive and bernoulli(rng, cfg.qv_prob_by_bucket.for_bucket(bucket))
 
         # Restart markers
         restart: dict[str, Any] | None = None
-        restart_p = sampling.restart_prob
-        if bucket == "low":
-            restart_p = min(0.10, restart_p + 0.02)
-        elif bucket == "high":
-            restart_p = max(0.01, restart_p - 0.01)
+        restart_p = cfg.restart_adjustments.apply(sampling.restart_prob, bucket)
         if bernoulli(rng, restart_p):
-            mcus = triangular_int(rng, 4, 64, 12)
+            mcus = triangular_int(
+                rng, cfg.restart_mcus_range.low, cfg.restart_mcus_range.high, cfg.restart_mcus_range.mode
+            )
             restart = {"unit": "mcus", "value": mcus}
 
         # Rare artifact shaping knobs. Keep them sparse.
@@ -201,8 +150,8 @@ class FraunhoferJPEGEncoder(JPEGEncoder):
         if quant.get("kind") == "custom":
             strength = float(quant.get("strength", 0.12))
             internal["custom_steps"] = {
-                "luma": _perturb_steps(rng, ANNEXK_LUMA_FLAT, strength),
-                "chroma": _perturb_steps(rng, ANNEXK_CHROMA_FLAT, strength),
+                "luma": perturb_steps(rng, ANNEXK_LUMA_FLAT, strength),
+                "chroma": perturb_steps(rng, ANNEXK_CHROMA_FLAT, strength),
             }
 
         return EncoderOptions(normalized=normalized, internal=internal)
@@ -216,7 +165,7 @@ class FraunhoferJPEGEncoder(JPEGEncoder):
         with tempfile.NamedTemporaryFile(suffix=".ppm", delete=False) as f:
             ppm_path = Path(f.name)
         options.temp_paths.append(ppm_path)
-        _png_to_ppm_file(input_png, ppm_path)
+        png_to_ppm_file(input_png, ppm_path)
 
         cmd: list[str] = [self._exe, "-q", str(base_quality)]
 
@@ -257,7 +206,7 @@ class FraunhoferJPEGEncoder(JPEGEncoder):
             with tempfile.NamedTemporaryFile("w", suffix=".qtf", delete=False, encoding="utf-8") as f:
                 qtf_path = Path(f.name)
             options.temp_paths.append(qtf_path)
-            _write_qtf_file(qtf_path, steps["luma"], steps["chroma"])
+            write_qtf_file(qtf_path, steps["luma"], steps["chroma"])
             cmd.extend(["-qtf", str(qtf_path)])
 
         # Restart markers
