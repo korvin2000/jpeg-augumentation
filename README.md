@@ -23,19 +23,19 @@ Requirements:
 Run as a module:
 
 ```bash
-python -m jpeg_variety.cli 75 ./pngs ./out_jpgs
+python -m jpeg_variety.cli 70-95 ./pngs ./out_jpgs
 ```
 
 Or via the console script:
 
 ```bash
-jpeg-variety 75 ./pngs ./out_jpgs
+jpeg-variety 70-95 ./pngs ./out_jpgs
 ```
 
 Optional flags:
 
 ```bash
-jpeg-variety 75 ./pngs ./out_jpgs \
+jpeg-variety 70-95 ./pngs ./out_jpgs \
   --seed 1234 \
   --jobs 8 \
   --recursive --mirror-subdirs \
@@ -46,7 +46,7 @@ jpeg-variety 75 ./pngs ./out_jpgs \
 Dry-run (samples options and writes a manifest without encoding):
 
 ```bash
-jpeg-variety 75 ./pngs ./out_jpgs --seed 1 --dry-run --recursive
+jpeg-variety 70-95 ./pngs ./out_jpgs --seed 1 --dry-run --recursive
 ```
 
 ## Output naming

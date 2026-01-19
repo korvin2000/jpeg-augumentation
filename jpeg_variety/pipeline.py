@@ -22,7 +22,8 @@ log = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class PipelineArgs:
-    base_quality: int
+    min_quality: int
+    max_quality: int
     src_dir: Path
     dst_dir: Path
     recursive: bool = False
@@ -39,6 +40,7 @@ class PipelineArgs:
 class EncodeResult:
     manifest: dict[str, Any]
     ok: bool
+    log_line: str
 
 
 def _write_jsonl_line(fp, obj: dict[str, Any]) -> None:
@@ -52,14 +54,38 @@ def _effective_jobs(requested: int) -> int:
     return max(1, (os.cpu_count() or 4))
 
 
+def _is_path_token(token: str) -> bool:
+    if not token or token.startswith("<"):
+        return False
+    if token.startswith("~"):
+        return True
+    if token.startswith("./") or token.startswith("../"):
+        return True
+    if os.sep in token or (os.altsep and os.altsep in token):
+        return True
+    suffix = Path(token).suffix.lower()
+    return suffix in {".png", ".jpg", ".jpeg"}
+
+
+def _format_log_line(image_name: str, encoder_name: str, cmd: list[str]) -> str:
+    def escape(text: str) -> str:
+        return text.replace('"', r"\"")
+
+    options = [token for token in cmd[1:] if not _is_path_token(token)] if cmd else []
+    options_text = " ".join(options)
+    return f'"{escape(image_name)}" : "{escape(encoder_name)}" "{escape(options_text)}"\n'
+
+
 def run_pipeline(args: PipelineArgs, config: AppConfig) -> Path:
     """Run the batch encoding pipeline.
 
     Returns the manifest path.
     """
 
-    if not (1 <= args.base_quality <= 100):
+    if not (1 <= args.min_quality <= 100) or not (1 <= args.max_quality <= 100):
         raise ValueError("quality must be in 1..100")
+    if args.min_quality > args.max_quality:
+        raise ValueError("min_quality must be <= max_quality")
 
     src = args.src_dir.expanduser().resolve()
     dst = args.dst_dir.expanduser().resolve()
@@ -85,8 +111,8 @@ def run_pipeline(args: PipelineArgs, config: AppConfig) -> Path:
         rel = item.rel_path
         pf_seed = per_file_seed(seed_ctx, rel)
         rng = rng_for_file(seed_ctx, rel)
-
-        bucket = quality_bucket(args.base_quality).name
+        base_quality = rng.randint(args.min_quality, args.max_quality)
+        bucket = quality_bucket(base_quality).name
         ctx = EncodeContext(
             src_root=src,
             dst_root=dst,
@@ -101,7 +127,7 @@ def run_pipeline(args: PipelineArgs, config: AppConfig) -> Path:
         ensure_parent_dir(out_path)
 
         encoder = factory.choose(rng)
-        options = encoder.sample_options(args.base_quality, rng, ctx)
+        options = encoder.sample_options(base_quality, rng, ctx)
 
         # Encode, unless dry-run / skip existing
         cmd: list[str] | None = None
@@ -139,10 +165,11 @@ def run_pipeline(args: PipelineArgs, config: AppConfig) -> Path:
         if cmd is None:
             cmd = ["<unknown>"]
 
+        encoder_name = getattr(encoder, "name", encoder.__class__.__name__)
         manifest: dict[str, Any] = {
             "input": str(item.input_path),
             "output": str(out_path),
-            "encoder": getattr(encoder, "name", encoder.__class__.__name__),
+            "encoder": encoder_name,
             "cmd": cmd,
             "seed": seed_ctx.run_seed,
             "per_file_seed": pf_seed,
@@ -153,17 +180,20 @@ def run_pipeline(args: PipelineArgs, config: AppConfig) -> Path:
         if error is not None:
             manifest["error"] = error
 
-        return EncodeResult(manifest=manifest, ok=ok)
+        log_line = _format_log_line(item.input_path.name, encoder_name, cmd)
+        return EncodeResult(manifest=manifest, ok=ok, log_line=log_line)
 
     # Run
     failures = 0
-    with manifest_path.open("w", encoding="utf-8") as fp:
+    log_path = manifest_path.parent / "encoding.log"
+    with manifest_path.open("w", encoding="utf-8") as fp, log_path.open("w", encoding="utf-8") as log_fp:
         with ThreadPoolExecutor(max_workers=jobs) as ex:
             futs = [ex.submit(work, f) for f in files]
 
             for fut in as_completed(futs):
                 result = fut.result()
                 _write_jsonl_line(fp, result.manifest)
+                log_fp.write(result.log_line)
 
                 if not result.ok:
                     failures += 1
