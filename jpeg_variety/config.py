@@ -61,8 +61,8 @@ class EncoderWeights:
 
     weights: dict[str, float] = field(
         default_factory=lambda: {
-            "cjpeg": 0.75,
-            "jpeg": 0.25,
+            "cjpeg": 0.50,
+            "jpeg": 0.50,
         }
     )
 
@@ -72,7 +72,7 @@ class GlobalSampling:
     """High-level sampling controls shared across encoders."""
 
     # Progressive vs baseline overall target (before quality correlations)
-    progressive_prob: float = 0.30
+    progressive_prob: float = 0.20
 
     # Subsampling overall targets
     subsampling_weights: dict[str, float] = field(
@@ -87,8 +87,8 @@ class GlobalSampling:
     quant_kind_weights: dict[str, float] = field(
         default_factory=lambda: {
             "annex_k": 0.50,
-            "imagemagick": 0.25,
-            "perceptual": 0.20,  # MS-SSIM / PSNR-HVS families
+            "imagemagick": 0.20,
+            "perceptual": 0.25,  # MS-SSIM / PSNR-HVS families
             "custom": 0.05,
         }
     )
@@ -96,7 +96,7 @@ class GlobalSampling:
     # When "perceptual" is chosen, pick among known tuned table IDs.
     # We favor common mid-frequency tables (2 and 4) and keep the rest as a long tail.
     perceptual_table_weights: dict[int, float] = field(
-        default_factory=lambda: {2: 0.35, 4: 0.35, 5: 0.10, 6: 0.08, 7: 0.07, 8: 0.05}
+        default_factory=lambda: {2: 0.32, 4: 0.32, 5: 0.10, 6: 0.09, 7: 0.09, 8: 0.08}
     )
 
     # Very rare: arithmetic coding (only on encoders that support it)

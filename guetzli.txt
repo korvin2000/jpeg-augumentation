@@ -1,0 +1,12 @@
+Usage: guetzli.exe [OPTIONS...] INPUT OUTPUT 
+
+Guetzli JPEG compressor. 
+Usage:
+guetzli [flags] input_filename output_filename
+
+Flags:
+  --verbose    - Print a verbose trace of all attempts to standard output.
+  --quality Q  - Visual quality to aim for, expressed as a JPEG quality value.
+  --memlimit M - Memory limit in MB. Guetzli will fail if unable to stay under
+                 the limit. Default is 6000 MB
+  --nomemlimit - Do not limit memory usage.
