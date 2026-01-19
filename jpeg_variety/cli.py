@@ -21,7 +21,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     # Exactly 3 required positionals
-    p.add_argument("quality", type=int, help="Base JPEG quality (1..100)")
+    p.add_argument(
+        "quality",
+        type=str,
+        help="Quality range min-max (1..100), inclusive, e.g. 70-95",
+    )
     p.add_argument("src_dir", type=Path, help="Directory containing .png files")
     p.add_argument("dst_dir", type=Path, help="Output directory for .jpg files")
 
@@ -60,8 +64,17 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         config = load_config(ns.config)
+        try:
+            quality_parts = ns.quality.split("-", maxsplit=1)
+            if len(quality_parts) != 2:
+                raise ValueError
+            min_quality = int(quality_parts[0])
+            max_quality = int(quality_parts[1])
+        except ValueError:
+            raise ValueError("quality must be in format min-max (e.g., 70-95)")
         args = PipelineArgs(
-            base_quality=ns.quality,
+            min_quality=min_quality,
+            max_quality=max_quality,
             src_dir=ns.src_dir,
             dst_dir=ns.dst_dir,
             recursive=ns.recursive,
