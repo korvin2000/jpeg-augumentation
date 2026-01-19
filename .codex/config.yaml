@@ -1,0 +1,102 @@
+version: 1
+project:
+  name: jpeg-variety
+  description: >-
+    CLI tool that batch-encodes PNG images into 8-bit JPEG using multiple encoder
+    backends and realistically weighted parameter sampling to maximize plausible
+    JPEG artifact diversity for model training.
+  goals_source: goals.md
+  target_os: "Windows 10-11"
+  language: Python 3.11
+  entrypoints:
+    - "python -m jpeg_variety.cli <quality> <src_dir> <dst_dir>"
+    - "jpeg-variety <quality> <src_dir> <dst_dir>"
+  external_tools:
+    - cjpeg (MozJPEG/libjpeg-turbo compatible)
+    - jpeg (Thomas Richter/Fraunhofer reference encoder)
+  key_dependencies:
+    - Pillow>=10.0.0
+  optional_dependencies:
+    - PyYAML>=6.0 (for YAML config)
+
+model:
+  name: gpt-5.2-codex
+  reasoning_effort: xhigh
+  allowed_reasoning_effort:
+    - high
+    - xhigh
+
+instructions:
+  - Always use model gpt-5.2-codex with reasoning effort high or xhigh; prefer xhigh for architecture or algorithm work or complex tasks.
+  - Keep changes minimal; avoid refactors unless required by the task.
+  - Prefer well-structured small classes or scripts; favor object-oriented patterns and design patterns such as factories when appropriate.
+  - Generate well-readable, modular code; divide complex tasks into smaller ones; follow clean-code principles and use modern Python features and standard libraries instead of writing new ones from scratch.
+  - Target operating system is Windows 10-11; avoid OS-specific paths or assumptions.
+  - Work in engineer mode: use explicit hypothesis → plan → refine → verify loops and summarize intermediate conclusions.
+  - Use prompt techniques when helpful: chain of thought, program of thought, tree of thoughts, contrastive reasoning, chain of draft, chain-of-reasoning, self-refine, chain of verification, intermediate summarization, priority hierarchy.
+  - Be a rigorous, senior engineer; prioritize correctness, invariants, edge cases, and algorithmic complexity; preserve behavior unless explicitly asked to change it.
+
+architecture:
+  overview:
+    - CLI entrypoint parses args and invokes the pipeline with config.
+    - Pipeline handles file discovery, RNG seeding, encoder selection, execution, and manifest logging.
+    - Encoders are plugins registered via a registry decorator and selected with weighted sampling.
+    - Utilities provide RNG seeding, weighted sampling, file discovery, and subprocess safety.
+  components:
+    cli: jpeg_variety/cli.py
+    pipeline: jpeg_variety/pipeline.py
+    config: jpeg_variety/config.py
+    encoders:
+      registry_factory: jpeg_variety/encoders/__init__.py
+      base_interface: jpeg_variety/encoders/base.py
+      cjpeg: jpeg_variety/encoders/cjpeg_encoder.py
+      fraunhofer_jpeg: jpeg_variety/encoders/fraunhofer_jpeg_encoder.py
+    utils:
+      files: jpeg_variety/utils/files.py
+      rng: jpeg_variety/utils/rng.py
+      sampling: jpeg_variety/utils/sampling.py
+      subprocess: jpeg_variety/utils/subprocess.py
+
+configuration:
+  files:
+    - pyproject.toml
+    - README.md
+    - goals.md
+  optional_config:
+    - JSON/YAML override loaded via --config (see jpeg_variety/config.py)
+
+workflow:
+  invariants_and_safety:
+    - quality must be 1..100
+    - determinism derived from (seed, relative_path)
+    - manifest writes one line per image
+  suggested_steps:
+    - Identify the minimal set of files/functions governing the change.
+    - Validate invariants and failure modes; update config or sampling logic as needed.
+    - Update docs or manifest schema if behavior changes.
+
+index:
+  docs:
+    - path: goals.md
+      purpose: Project goals, encoder requirements, and architecture specification.
+    - path: README.md
+      purpose: Usage, install, and extension guide.
+  configs:
+    - path: pyproject.toml
+      purpose: Packaging metadata and dependencies.
+  source:
+    - path: jpeg_variety/cli.py
+      purpose: CLI argument parsing and entrypoint.
+    - path: jpeg_variety/pipeline.py
+      purpose: Main pipeline (iteration, RNG, encoder selection, manifest).
+    - path: jpeg_variety/config.py
+      purpose: Sampling weights and config overrides.
+    - path: jpeg_variety/encoders/
+      purpose: Encoder plugins and registry.
+    - path: jpeg_variety/utils/
+      purpose: RNG, sampling, file discovery, subprocess wrappers.
+  data:
+    - path: cjpeg.txt
+      purpose: cjpeg option inventory (reference).
+    - path: jpeg.txt
+      purpose: jpeg option inventory (reference).
