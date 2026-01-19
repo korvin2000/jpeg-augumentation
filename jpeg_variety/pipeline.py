@@ -67,11 +67,24 @@ def _is_path_token(token: str) -> bool:
     return suffix in {".png", ".jpg", ".jpeg"}
 
 
-def _format_log_line(image_name: str, encoder_name: str, cmd: list[str]) -> str:
+def _format_log_line(
+    image_name: str,
+    encoder_name: str,
+    cmd: list[str],
+    normalized: dict[str, Any] | None = None,
+    *,
+    include_normalized: bool = False,
+) -> str:
     def escape(text: str) -> str:
         return text.replace('"', r"\"")
 
     options = [token for token in cmd[1:] if not _is_path_token(token)] if cmd else []
+    if include_normalized and normalized:
+        ignored = {"dry_run", "skipped_existing"}
+        normalized_items = [
+            f"{key}={value}" for key, value in sorted(normalized.items()) if key not in ignored
+        ]
+        options.extend(normalized_items)
     options_text = " ".join(options)
     return f'"{escape(image_name)}" : "{escape(encoder_name)}" "{escape(options_text)}"\n'
 
@@ -180,7 +193,13 @@ def run_pipeline(args: PipelineArgs, config: AppConfig) -> Path:
         if error is not None:
             manifest["error"] = error
 
-        log_line = _format_log_line(item.input_path.name, encoder_name, cmd)
+        log_line = _format_log_line(
+            item.input_path.name,
+            encoder_name,
+            cmd,
+            options.normalized,
+            include_normalized=args.dry_run,
+        )
         return EncodeResult(manifest=manifest, ok=ok, log_line=log_line)
 
     # Run
