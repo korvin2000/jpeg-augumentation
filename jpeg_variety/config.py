@@ -61,8 +61,10 @@ class EncoderWeights:
 
     weights: dict[str, float] = field(
         default_factory=lambda: {
-            "cjpeg": 0.50,
-            "jpeg": 0.50,
+            "cjpeg": 0.45,
+            "jpeg": 0.25,
+            "cjpegli": 0.20,
+            "guetzli": 0.10,
         }
     )
 
@@ -140,6 +142,12 @@ def load_config(path: Path | None) -> AppConfig:
         },
         "jpeg": {
           "baseline_process_prob": 0.75
+        },
+        "cjpegli": {
+          "progressive_level_weights": {"1": 0.35, "2": 0.65}
+        },
+        "guetzli": {
+          "nomemlimit_prob": 0.15
         }
       }
     }

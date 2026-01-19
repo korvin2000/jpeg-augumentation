@@ -17,6 +17,8 @@ Requirements:
 - External encoders on `PATH`:
   - `cjpeg` (MozJPEG / libjpeg-turbo compatible)
   - `jpeg` (Thomas Richter / Fraunhofer reference encoder)
+  - `cjpegli` (JPEG XL project's cjpegli encoder)
+  - `guetzli` (Google guetzli encoder)
 
 ## Usage
 
@@ -63,7 +65,7 @@ record per processed image.
 
 Key fields:
 - `input`, `output`
-- `encoder` (`cjpeg` or `jpeg`)
+- `encoder` (`cjpeg`, `jpeg`, `cjpegli`, or `guetzli`)
 - `quality`, `subsampling`, `progressive`, `quant_table`, `dct`, `entropy`, `restart`
 - `cmd` (full command-line as executed)
 - `seed` (run seed) and `per_file_seed` (stable per-image seed)

@@ -81,7 +81,7 @@ class EncoderFactory:
     def require_any(self) -> None:
         if not self._available:
             raise RuntimeError(
-                "No encoders available. Ensure 'cjpeg' and/or 'jpeg' are on PATH, or adjust encoder weights."
+                "No encoders available. Ensure at least one encoder is on PATH, or adjust encoder weights."
             )
 
     def choose(self, rng) -> JPEGEncoder:
