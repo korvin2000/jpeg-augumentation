@@ -44,9 +44,9 @@ class CjpegliEncoder(JPEGEncoder):
         if progressive:
             progressive_level = int(weighted_choice(rng, cfg.progressive_level_weights))
 
-        subsampling = weighted_choice(rng, cfg.subsampling_overrides.for_bucket(sampling.subsampling_weights, bucket))
-        if subsampling == "420" and bernoulli(rng, cfg.subsampling_440_prob_by_bucket.for_bucket(bucket)):
-            subsampling = "440"
+        subsampling_weights = cfg.subsampling_overrides.for_bucket(sampling.subsampling_weights, bucket)
+        subsampling_weights = {k: v for k, v in subsampling_weights.items() if k in {"420", "422", "444", "440"}}
+        subsampling = weighted_choice(rng, subsampling_weights)
 
         quant_kind = weighted_choice(rng, sampling.quant_kind_weights)
         std_quant = quant_kind == "annex_k"

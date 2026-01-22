@@ -54,7 +54,14 @@ class FraunhoferJPEGEncoder(JPEGEncoder):
         if not progressive:
             baseline_process = bernoulli(rng, cfg.baseline_process_prob)
 
-        subsampling = weighted_choice(rng, cfg.subsampling_overrides.for_bucket(sampling.subsampling_weights, bucket))
+        subsampling_weights = cfg.subsampling_overrides.for_bucket(sampling.subsampling_weights, bucket)
+        subsampling_weights = {k: v for k, v in subsampling_weights.items() if k in {"420", "422", "444"}}
+        subsampling = weighted_choice(rng, subsampling_weights)
+        subsampling_factor = None
+        if subsampling == "422":
+            subsampling_factor = weighted_choice(
+                rng, {"2x1,1x1,1x1": 0.90, "2x2,1x2,1x2": 0.10}
+            )
 
         # Entropy coding knobs
         arithmetic = bernoulli(rng, sampling.arithmetic_prob)
@@ -107,6 +114,7 @@ class FraunhoferJPEGEncoder(JPEGEncoder):
                 "dz": bool(dz),
                 "oz": bool(oz),
                 "dr": bool(dr),
+                "subsampling_factor": subsampling_factor,
             },
         }
 
@@ -115,6 +123,7 @@ class FraunhoferJPEGEncoder(JPEGEncoder):
             "baseline_process": baseline_process,
             "qv": qv,
             "subsampling": subsampling,
+            "subsampling_factor": subsampling_factor,
             "huffman_opt": huffman_opt,
             "arithmetic": arithmetic,
             "quant": quant,
@@ -170,11 +179,10 @@ class FraunhoferJPEGEncoder(JPEGEncoder):
         # Subsampling factors
         subsampling = str(options.internal.get("subsampling", "444"))
         # From inventory: default 444 is 1x1,1x1,1x1; 420 often used is 1x1,2x2,2x2.
-        # For 422, we use a plausible mapping: 1x1,2x1,2x1.
         s_map = {
             "444": "1x1,1x1,1x1",
             "420": "1x1,2x2,2x2",
-            "422": "1x1,2x1,2x1",
+            "422": options.internal.get("subsampling_factor") or "2x1,1x1,1x1",
         }
         cmd.extend(["-s", s_map.get(subsampling, "1x1,2x2,2x2")])
 

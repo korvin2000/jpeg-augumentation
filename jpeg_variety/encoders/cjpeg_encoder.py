@@ -53,7 +53,14 @@ class CjpegEncoder(JPEGEncoder):
         cfg = context.encoder_sampling.cjpeg
 
         progressive = bernoulli(rng, cfg.progressive_adjustments.apply(sampling.progressive_prob, bucket))
-        subsampling = weighted_choice(rng, cfg.subsampling_overrides.for_bucket(sampling.subsampling_weights, bucket))
+        subsampling_weights = cfg.subsampling_overrides.for_bucket(sampling.subsampling_weights, bucket)
+        subsampling_weights = {k: v for k, v in subsampling_weights.items() if k in {"420", "422", "444"}}
+        subsampling = weighted_choice(rng, subsampling_weights)
+        subsampling_factor = None
+        if subsampling == "422":
+            subsampling_factor = weighted_choice(
+                rng, {"2x1,1x1,1x1": 0.90, "2x2,1x2,1x2": 0.10}
+            )
 
         # DCT variants: int dominates, fast/float are legacy and rare.
         dct = weighted_choice(rng, cfg.dct_weights)
@@ -130,6 +137,7 @@ class CjpegEncoder(JPEGEncoder):
                 "trellis_disable": trellis_disable_kind,
                 "tune": tune_mode,
                 "quant_baseline": quant_baseline,
+                "subsampling_factor": subsampling_factor,
             },
         }
 
@@ -137,6 +145,7 @@ class CjpegEncoder(JPEGEncoder):
         internal: dict[str, Any] = {
             "progressive": progressive,
             "subsampling": subsampling,
+            "subsampling_factor": subsampling_factor,
             "dct": dct,
             "dc_scan_opt": dc_scan_opt,
             "fastcrush": fastcrush,
@@ -184,9 +193,10 @@ class CjpegEncoder(JPEGEncoder):
 
         # Subsampling
         subsampling = str(options.internal.get("subsampling", "420"))
+        subsampling_factor = options.internal.get("subsampling_factor")
         sample_map = {
             "444": "1x1,1x1,1x1",
-            "422": "2x1,1x1,1x1",
+            "422": subsampling_factor or "2x1,1x1,1x1",
             "420": "2x2,1x1,1x1",
         }
         cmd.extend(["-sample", sample_map.get(subsampling, "2x2,1x1,1x1")])
