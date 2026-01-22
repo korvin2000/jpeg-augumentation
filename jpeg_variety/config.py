@@ -7,7 +7,7 @@ This module defines:
 
 Defaults are chosen to approximate common JPEG production on the web:
 - Baseline (sequential) is more common than progressive overall.
-- 4:2:0 subsampling dominates, with 4:4:4 more frequent at higher quality.
+- 4:4:4 subsampling is most common overall, with 4:2:0 close behind.
 - Standard-ish quant tables dominate, with a long tail of other tables.
 - Arithmetic coding exists but is extremely rare.
 
@@ -79,9 +79,10 @@ class GlobalSampling:
     # Subsampling overall targets
     subsampling_weights: dict[str, float] = field(
         default_factory=lambda: {
-            "420": 0.80,
-            "444": 0.15,
-            "422": 0.05,
+            "444": 0.53,
+            "420": 0.42,
+            "422": 0.04,
+            "440": 0.01,
         }
     )
 
@@ -129,7 +130,7 @@ def load_config(path: Path | None) -> AppConfig:
       "encoder_weights": {"cjpeg": 0.75, "jpeg": 0.25},
       "sampling": {
         "progressive_prob": 0.30,
-        "subsampling_weights": {"420": 0.80, "444": 0.15, "422": 0.05},
+        "subsampling_weights": {"444": 0.53, "420": 0.42, "422": 0.04, "440": 0.01},
         "quant_kind_weights": {"annex_k": 0.50, ...},
         "perceptual_table_weights": {"2": 0.35, "4": 0.35, "5": 0.10, "6": 0.08, "7": 0.07, "8": 0.05},
         "arithmetic_prob": 0.003,

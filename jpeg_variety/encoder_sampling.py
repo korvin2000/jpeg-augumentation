@@ -157,12 +157,11 @@ class CjpegliSamplingConfig:
     progressive_adjustments: ProgressiveProbAdjustments = field(default_factory=ProgressiveProbAdjustments)
     subsampling_overrides: BucketedWeightsOverrides = field(
         default_factory=lambda: BucketedWeightsOverrides(
-            low={"420": 0.88, "444": 0.08, "422": 0.04},
-            high={"420": 0.68, "444": 0.27, "422": 0.05},
+            low={"420": 0.87, "444": 0.08, "422": 0.04, "440": 0.01},
+            high={"420": 0.67, "444": 0.27, "422": 0.05, "440": 0.01},
         )
     )
     progressive_level_weights: dict[int, float] = field(default_factory=lambda: {1: 0.35, 2: 0.65})
-    subsampling_440_prob_by_bucket: BucketedValues = field(default_factory=lambda: BucketedValues(0.02, 0.03, 0.05))
     xyb_prob_by_bucket: BucketedValues = field(default_factory=lambda: BucketedValues(0.04, 0.07, 0.12))
     noadaptive_quant_prob_by_bucket: BucketedValues = field(default_factory=lambda: BucketedValues(0.08, 0.06, 0.04))
     fixed_code_prob: float = 0.015
